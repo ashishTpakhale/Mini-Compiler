@@ -12,6 +12,7 @@ extern int line_number;
 #define MAX_SYMBOLS 100
 #define MAX_NAME_LEN 63
 #define MAX_TYPE_LEN 9
+#define OUTPUT_WIDTH 72
 
 struct sym {
     char name[MAX_NAME_LEN + 1];
@@ -57,12 +58,83 @@ char *copy_string(const char *value) {
 }
 
 void print_usage(const char *program_name) {
+    printf("Mini Compiler\n");
+    printf("A Flex/Bison compiler with semantic diagnostics and TAC generation.\n\n");
     printf("Usage: %s [options] [source-file]\n", program_name);
     printf("\nOptions:\n");
     printf("  -o, --output <file>   Write symbol table and TAC to a file\n");
     printf("  -q, --quiet           Only print diagnostics and final summary\n");
     printf("  -h, --help            Show this help message\n");
     printf("\nIf no source file is given, input is read from standard input.\n");
+}
+
+void print_rule(FILE *stream, char ch) {
+    for (int i = 0; i < OUTPUT_WIDTH; i++) {
+        fputc(ch, stream);
+    }
+    fputc('\n', stream);
+}
+
+void print_section(FILE *stream, const char *title) {
+    fprintf(stream, "\n");
+    print_rule(stream, '=');
+    fprintf(stream, "%s\n", title);
+    print_rule(stream, '=');
+}
+
+void print_symbol_table(FILE *stream) {
+    print_section(stream, "Symbol Table");
+    fprintf(stream, "+------+------------------------------+----------+\n");
+    fprintf(stream, "| No.  | Identifier                   | Type     |\n");
+    fprintf(stream, "+------+------------------------------+----------+\n");
+
+    if (symcount == 0) {
+        fprintf(stream, "| %-4s | %-28s | %-8s |\n", "-", "No symbols declared", "-");
+    } else {
+        for (int i = 0; i < symcount; i++) {
+            fprintf(stream, "| %-4d | %-28s | %-8s |\n", i + 1, symtab[i].name, symtab[i].type);
+        }
+    }
+
+    fprintf(stream, "+------+------------------------------+----------+\n");
+}
+
+void print_tac(FILE *stream, const char *code) {
+    char *copy;
+    char *line;
+    int instruction = 1;
+
+    print_section(stream, "Intermediate Code (Three-Address Code)");
+
+    if (code == NULL || strlen(code) == 0) {
+        fprintf(stream, "No intermediate code generated.\n");
+        return;
+    }
+
+    copy = copy_string(code);
+    line = strtok(copy, "\n");
+
+    while (line != NULL) {
+        if (strlen(line) > 0) {
+            fprintf(stream, "%3d | %s\n", instruction++, line);
+        }
+        line = strtok(NULL, "\n");
+    }
+
+    free(copy);
+}
+
+void print_compilation_output(const char *code) {
+    print_rule(out, '=');
+    fprintf(out, "Mini Compiler Report\n");
+    fprintf(out, "Source: %s\n", source_name);
+    print_rule(out, '=');
+    print_symbol_table(out);
+    print_tac(out, code);
+    fprintf(out, "\n");
+    print_rule(out, '=');
+    fprintf(out, "End of Report\n");
+    print_rule(out, '=');
 }
 
 void report_error(const char *kind, int line, const char *fmt, ...) {
@@ -282,13 +354,7 @@ char *build_condition_code(struct expr_attr left, char *relop, struct expr_attr 
 PROGRAM:
     STMTS {
         if (diagnostic_count == 0 && !suppress_output) {
-            fprintf(out, "Symbol Table\nName\tType\n");
-            for (int i = 0; i < symcount; i++) {
-                fprintf(out, "%s\t%s\n", symtab[i].name, symtab[i].type);
-            }
-
-            fprintf(out, "\nIntermediate Code (TAC)\n");
-            fprintf(out, "%s\n", $1);
+            print_compilation_output($1);
         }
     }
 ;
@@ -546,12 +612,13 @@ int main(int argc, char **argv) {
 
     if (diagnostic_count > 0) {
         fprintf(stderr,
-            "\nCompilation failed: %d diagnostic(s) (%d lexical, %d syntax, %d semantic).\n",
+            "\n[FAILED] Compilation finished with %d diagnostic(s).\n"
+            "         lexical: %d | syntax: %d | semantic: %d\n",
             diagnostic_count, lexical_error_count, syntax_error_count, semantic_error_count);
     } else {
-        fprintf(stderr, "\nCompilation succeeded: no diagnostics.\n");
+        fprintf(stderr, "\n[SUCCESS] Compilation completed with no diagnostics.\n");
         if (output_path != NULL && !suppress_output) {
-            fprintf(stderr, "Wrote output to %s\n", output_path);
+            fprintf(stderr, "          Wrote report to %s\n", output_path);
         }
     }
 
