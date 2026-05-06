@@ -37,6 +37,8 @@ int lexical_error_count = 0;
 int suppress_output = 0;
 const char *source_name = "<stdin>";
 FILE *out = NULL;
+char **source_lines = NULL;
+int source_line_count = 0;
 
 char *copy_string(const char *value) {
     char *copy;
@@ -137,20 +139,94 @@ void print_compilation_output(const char *code) {
     print_rule(out, '=');
 }
 
+const char *diagnostic_label(const char *kind) {
+    if (strcmp(kind, "lexical") == 0) {
+        return "LEXICAL";
+    }
+    if (strcmp(kind, "syntax") == 0) {
+        return "SYNTAX";
+    }
+    if (strcmp(kind, "semantic") == 0) {
+        return "SEMANTIC";
+    }
+    return "ERROR";
+}
+
+void load_source_lines(const char *path) {
+    FILE *file;
+    char buffer[1024];
+    int capacity = 64;
+
+    if (path == NULL) {
+        return;
+    }
+
+    file = fopen(path, "r");
+    if (file == NULL) {
+        return;
+    }
+
+    source_lines = malloc(sizeof(char *) * capacity);
+    if (source_lines == NULL) {
+        fprintf(stderr, "fatal: out of memory\n");
+        exit(2);
+    }
+
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        size_t len = strlen(buffer);
+
+        while (len > 0 && (buffer[len - 1] == '\n' || buffer[len - 1] == '\r')) {
+            buffer[--len] = '\0';
+        }
+
+        if (source_line_count >= capacity) {
+            char **grown;
+            capacity *= 2;
+            grown = realloc(source_lines, sizeof(char *) * capacity);
+            if (grown == NULL) {
+                fprintf(stderr, "fatal: out of memory\n");
+                exit(2);
+            }
+            source_lines = grown;
+        }
+
+        source_lines[source_line_count++] = copy_string(buffer);
+    }
+
+    fclose(file);
+}
+
+const char *get_source_line(int line) {
+    if (line <= 0 || line > source_line_count || source_lines == NULL) {
+        return NULL;
+    }
+    return source_lines[line - 1];
+}
+
 void report_error(const char *kind, int line, const char *fmt, ...) {
     va_list args;
+    char message[512];
+    const char *source_line;
 
     if (line <= 0) {
         line = line_number;
     }
 
-    fprintf(stderr, "%s:%d: %s error: ", source_name, line, kind);
-
     va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
+    vsnprintf(message, sizeof(message), fmt, args);
     va_end(args);
 
     fprintf(stderr, "\n");
+    print_rule(stderr, '-');
+    fprintf(stderr, "[%s ERROR] %s:%d\n", diagnostic_label(kind), source_name, line);
+    fprintf(stderr, "Message: %s\n", message);
+
+    source_line = get_source_line(line);
+    if (source_line != NULL) {
+        fprintf(stderr, "Source : %4d | %s\n", line, source_line);
+    }
+
+    print_rule(stderr, '-');
     diagnostic_count++;
 
     if (strcmp(kind, "syntax") == 0) {
@@ -595,6 +671,7 @@ int main(int argc, char **argv) {
             return 2;
         }
         source_name = input_path;
+        load_source_lines(input_path);
     }
 
     if (output_path != NULL) {
@@ -612,15 +689,36 @@ int main(int argc, char **argv) {
 
     if (diagnostic_count > 0) {
         fprintf(stderr,
-            "\n[FAILED] Compilation finished with %d diagnostic(s).\n"
-            "         lexical: %d | syntax: %d | semantic: %d\n",
-            diagnostic_count, lexical_error_count, syntax_error_count, semantic_error_count);
+            "\n");
+        print_rule(stderr, '=');
+        fprintf(stderr, "Diagnostic Summary\n");
+        print_rule(stderr, '=');
+        fprintf(stderr, "Status   : FAILED\n");
+        fprintf(stderr, "Total    : %d\n", diagnostic_count);
+        fprintf(stderr, "Lexical  : %d\n", lexical_error_count);
+        fprintf(stderr, "Syntax   : %d\n", syntax_error_count);
+        fprintf(stderr, "Semantic : %d\n", semantic_error_count);
+        print_rule(stderr, '=');
+        fprintf(stderr, "\n");
     } else {
-        fprintf(stderr, "\n[SUCCESS] Compilation completed with no diagnostics.\n");
+        fprintf(stderr, "\n");
+        print_rule(stderr, '=');
+        fprintf(stderr, "Diagnostic Summary\n");
+        print_rule(stderr, '=');
+        fprintf(stderr, "Status   : SUCCESS\n");
+        fprintf(stderr, "Total    : 0\n");
+        fprintf(stderr, "Message  : Compilation completed with no diagnostics.\n");
+        print_rule(stderr, '=');
+        fprintf(stderr, "\n");
         if (output_path != NULL && !suppress_output) {
-            fprintf(stderr, "          Wrote report to %s\n", output_path);
+            fprintf(stderr, "Wrote report to %s\n", output_path);
         }
     }
+
+    for (int i = 0; i < source_line_count; i++) {
+        free(source_lines[i]);
+    }
+    free(source_lines);
 
     if (yyin != NULL) {
         fclose(yyin);
