@@ -1,14 +1,13 @@
 # Mini Compiler
 
-![C Language](https://img.shields.io/badge/C-Language-blue.svg)
-![Flex](https://img.shields.io/badge/Lexer-Flex-orange.svg)
-![Bison](https://img.shields.io/badge/Parser-Bison-purple.svg)
-![Compiler Design](https://img.shields.io/badge/Domain-Compiler%20Design-brightgreen.svg)
+![C](https://img.shields.io/badge/C-Language-blue.svg)
+![Flex](https://img.shields.io/badge/Flex-Lexical%20Analysis-orange.svg)
+![Bison](https://img.shields.io/badge/Bison-Parser-purple.svg)
+![Compiler](https://img.shields.io/badge/Compiler-Design-brightgreen.svg)
 
-A simple compiler built using **Flex**, **Bison**, and **C** for a small C-like language.
-It performs lexical analysis, syntax analysis, semantic checking, symbol table construction, and three-address code generation.
+A compact compiler front end built with **Flex**, **Bison**, and **C** for a small C-like language. It performs lexical analysis, parsing, semantic analysis, symbol table construction, and three-address code generation.
 
-The compiler is designed to report **multiple errors in one run** instead of stopping at the first error, making it closer to how real compilers provide diagnostics.
+The compiler includes diagnostic recovery, so it can report multiple lexical, syntax, and semantic errors in a single run.
 
 ---
 
@@ -30,38 +29,40 @@ Three Address Code Generation
 
 ---
 
+
 ## Features
 
-- A Flex-based lexical analyzer for keywords, identifiers, numbers, operators, comments, and symbols
-- A Bison-based parser for declarations, assignments, expressions, `if` statements, and `while` loops
-- A symbol table for declared variables and their data types
-- Semantic checks for undeclared variables, multiple declarations, type mismatches, invalid assignments, and invalid relational conditions
+- Flex-based lexer for keywords, identifiers, numbers, operators, comments, and symbols
+- Bison-based parser for declarations, assignments, expressions, `if`, and `while`
+- Symbol table for declared identifiers and their data types
+- Semantic analysis for undeclared variables, duplicate declarations, type mismatches, invalid assignments, and invalid relational conditions
 - Three-address code generation using temporary variables and labels
-- Error recovery so the compiler can continue after an error and report more issues
-- A user-friendly CLI with input file support, output file support, quiet mode, and help text
+- Error recovery for reporting multiple diagnostics in one compilation pass
+- CLI support for input files, output files, quiet mode, and help text
 
 ---
 
 ## Supported Language Features
 
 - Variable declarations
+- Integer and float data types
 - Arithmetic expressions
 - Assignment statements
 - Relational operators
 - `if` statements
 - `while` loops
-- Integer and float data types
-- Comments
+- Single-line and multi-line comments
 
 ---
 
 ## How It Works
 
-The compiler follows a classic front-end compiler architecture. **Flex** tokenizes the source program into meaningful tokens such as identifiers, keywords, numbers, and operators. **Bison** then validates the token stream against the grammar of the language.
-
-After parsing, semantic analysis checks whether variables are declared before use, whether declarations are repeated, and whether expressions and assignments use compatible types. The symbol table stores identifiers and their associated data types. If the program is valid, the compiler generates **three-address code (TAC)** using temporary variables and labels.
-
-Diagnostics are collected together where recovery is possible, allowing the compiler to report multiple lexical, syntax, and semantic errors in a single run.
+- **Flex** tokenizes the source code.
+- **Bison** validates the token stream using grammar rules.
+- **Semantic analysis** checks declarations, assignments, and type compatibility.
+- **Symbol table construction** stores identifiers and their data types.
+- **TAC generation** emits intermediate code using temporaries and labels.
+- **Diagnostics** are collected and displayed together where recovery is possible.
 
 ---
 
@@ -86,61 +87,30 @@ Diagnostics are collected together where recovery is possible, allowing the comp
 
 ## Requirements
 
-You need:
-
 - Flex
 - Bison
 - GCC
-- Make, optional but recommended
+- Make
 
-On Windows, the easiest setup is **MSYS2 UCRT64**.
+On Windows, use the **MSYS2 UCRT64** terminal for the smoothest setup.
 
 ---
 
-## Complete Setup on Windows
+## Setup
 
-Open the **MSYS2 UCRT64** terminal and install the required tools:
+Install dependencies in MSYS2 UCRT64:
 
 ```sh
 pacman -Syu
 pacman -S mingw-w64-ucrt-x86_64-gcc flex bison make
 ```
 
-Go to the project folder:
+Clone and enter the project:
 
 ```sh
-cd "/d/coder/Compiler/Lab/Lab 5"
+git clone https://github.com/ashishTpakhale/Mini-Compiler.git
+cd Mini-Compiler
 ```
-
-Create the build folder:
-
-```sh
-mkdir -p build
-```
-
-Generate the parser using Bison:
-
-```sh
-bison -d -o build/compiler.tab.c src/compiler.y
-```
-
-Generate the scanner using Flex:
-
-```sh
-flex -o build/lexer.yy.c src/compiler.l
-```
-
-Compile the final executable:
-
-```sh
-gcc -Wall -Wextra -std=gnu11 -Ibuild build/compiler.tab.c build/lexer.yy.c -o build/minic.exe
-```
-
----
-
-## Makefile Commands
-
-The project includes a professional `Makefile` to automate the complete build process.
 
 Build the compiler:
 
@@ -148,53 +118,51 @@ Build the compiler:
 make
 ```
 
-Run the compiler on the valid example program:
+---
+
+## Makefile Commands
 
 ```sh
-make run
-```
-
-Remove generated files:
-
-```sh
-make clean
+make        # Build the compiler
+make run    # Build and run examples/valid.txt
+make clean  # Remove generated build files
 ```
 
 ---
 
 ## Running the Compiler
 
-Run the compiler on a valid input program:
+Run a valid program:
 
 ```sh
 ./build/minic.exe examples/valid.txt
 ```
 
-Run it on a file with a type error:
+Run a program with a type error:
 
 ```sh
 ./build/minic.exe examples/type_error.txt
 ```
 
-Run it on a file with multiple errors:
+Run a program with multiple errors:
 
 ```sh
 ./build/minic.exe examples/multiple_errors.txt
 ```
 
-Write the compiler output to a file:
+Write compiler output to a file:
 
 ```sh
 ./build/minic.exe -o build/output.tac examples/valid.txt
 ```
 
-Only show diagnostics and the final summary:
+Only show diagnostics and summary:
 
 ```sh
 ./build/minic.exe -q examples/valid.txt
 ```
 
-Show help:
+Show CLI help:
 
 ```sh
 ./build/minic.exe --help
@@ -205,22 +173,15 @@ Show help:
 ## Example Input Program
 
 ```c
-int a, b, c;
-float x, y;
+int a, b;
+float x;
 
 a = 10;
 b = 20;
-x = 1.5;
-y = 2.5;
+x = 2.5;
 
-c = (a + b) * 2;
-
-if (c >= 60) {
-    a = c - 5;
-}
-
-while (a < 100) {
-    a = a + 10;
+if (a < b) {
+    a = a + 1;
 }
 ```
 
@@ -228,7 +189,7 @@ while (a < 100) {
 
 ## Example Output
 
-For a valid program, the compiler prints:
+For a valid program, the compiler prints a formatted report:
 
 ```text
 ========================================================================
@@ -254,7 +215,7 @@ Intermediate Code (Three-Address Code)
   3 | t1 = a + b
 ```
 
-For an invalid program, it reports diagnostics like:
+For an invalid program, diagnostics include the error type, file, line number, message, and source line:
 
 ```text
 ------------------------------------------------------------------------
@@ -288,41 +249,25 @@ Semantic : 3
 
 ---
 
-## Clean Generated Files
-
-Generated files are stored inside `build/`. To clean them:
-
-```sh
-rm -rf build
-```
-
-The `build/` folder is ignored by Git because generated files and executables should not be pushed to GitHub.
-
----
-
 ## Learning Outcomes
 
-This project strengthened practical understanding of:
-
-- Compiler design
-- Lexical analysis
-- Parsing
-- Semantic analysis
+- Compiler design fundamentals
+- Lexical analysis using Flex
+- Parsing using Bison
+- Semantic analysis and type checking
+- Symbol table management
 - Intermediate code generation
-- Error recovery
+- Error recovery and diagnostics
 - Systems programming in C
 
 ---
 
 ## Future Improvements
 
-- Add support for more data types
-- Add `else` support for conditional statements
-- Improve syntax error messages with more specific suggestions
-- Add more test programs for valid and invalid inputs
-- Support nested scopes using an improved symbol table
-- Generate cleaner and more optimized three-address code
-- Add function declarations and function calls
+- AST generation
+- Function support
+- Optimization passes
+- Assembly code generation
 
 ---
 
