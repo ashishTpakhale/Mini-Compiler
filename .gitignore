@@ -1,0 +1,21 @@
+# Build artifacts
+build/
+*.exe
+*.out
+
+# Flex/Bison generated files
+*.tab.c
+*.tab.h
+lex.yy.c
+lexer.yy.c
+
+# Editor and OS noise
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
+
+# Local scratch outputs
+output.txt
+*.tac
